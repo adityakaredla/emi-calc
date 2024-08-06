@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import CssBaseline from "@mui/material/CssBaseline";
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
@@ -31,6 +31,7 @@ function App() {
   const [totalAmount, setTotalAmount] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [inputMode, setInputMode] = useState("emi");
+  const resultsRef = useRef(null);
 
   useEffect(() => {
     const activated = localStorage.getItem("emiCalculatorActivated");
@@ -38,6 +39,12 @@ function App() {
       setIsActivated(true);
     }
   }, []);
+
+  const scrollToResults = () => {
+    if (resultsRef.current) {
+      resultsRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   function calculatePercentage(x, y) {
     x = parseFloat(x);
@@ -70,6 +77,7 @@ function App() {
       setTotalInterest(interestPayment.toFixed(2));
       setTotalAmount((totalPayment + convertedDownPayment).toFixed(2)); // Add advance EMI to total amount
       setLoanAmount(principal.toFixed(2));
+      scrollToResults(); // Scroll to results after calculation
     }
   };
 
@@ -94,6 +102,7 @@ function App() {
       setTotalInterest(interestPayment.toFixed(2));
       setTotalAmount((tempDownPayment + (emiValue * parseFloat(time - advanceEmi))).toFixed(2));
       setLoanAmount(principal.toFixed(2));
+      scrollToResults(); // Scroll to results after calculation
     }
   };
 
@@ -307,6 +316,7 @@ function App() {
           )}
         </Box>
       </Container>
+      <div ref={resultsRef} />
     </>
   );
 }
