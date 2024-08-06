@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
@@ -8,24 +7,30 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
 import InputAdornment from "@mui/material/InputAdornment";
+import Radio from "@mui/material/Radio";
+import RadioGroup from "@mui/material/RadioGroup";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import ActivationPrompt from "./ActivationPrompt";
+import Settings from "./Settings";
+import extractSumOfCharges from "./helpers/extractSumOfCharges";
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#1976d2",
-    },
-  },
-});
+
+
+const settings = JSON.parse(localStorage.getItem("emiCalculatorSettings")) || {};
 
 function App() {
   const [isActivated, setIsActivated] = useState(false);
-  const [loanAmount, setLoanAmount] = useState("");
-  const [interestRate, setInterestRate] = useState("");
-  const [loanTerm, setLoanTerm] = useState("");
-  const [emi, setEmi] = useState(null);
+  const [onRoadCost, setOnRoadCost] = useState("");
+  const [interestRate, setInterestRate] = useState(settings.interestRateDefault);
+  const [tenure, setTenure] = useState("");
+  const [advanceEmi, setAdvanceEmi] = useState(settings.advanceEmi || 0);
+  const [emi, setEmi] = useState("");
+  const [downPayment, setDownPayment] = useState("");
+  const [loanAmount, setLoanAmount] = useState(null);
   const [totalInterest, setTotalInterest] = useState(null);
   const [totalAmount, setTotalAmount] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [inputMode, setInputMode] = useState("emi");
 
   useEffect(() => {
     const activated = localStorage.getItem("emiCalculatorActivated");
@@ -34,21 +39,61 @@ function App() {
     }
   }, []);
 
+  function calculatePercentage(x, y) {
+    x = parseFloat(x);
+  
+    if (isNaN(x) || isNaN(y)) {
+      return 0;
+    }
+  
+    return (x / 100) * y;
+  }
+  
   const calculateEMI = () => {
-    const principal = parseFloat(loanAmount);
+    if (!onRoadCost || !interestRate || !tenure || !downPayment) {
+      alert("Please fill in all fields.");
+      return;
+    }
+    const extraCharges = extractSumOfCharges();
+    const convertedDownPayment = parseFloat(downPayment)
+    const principal = parseFloat(onRoadCost) - convertedDownPayment+ parseFloat(extraCharges) + calculatePercentage(settings.agreementCharges,parseFloat(onRoadCost - downPayment));
+    console.log(parseFloat(extraCharges),calculatePercentage(settings.agreementCharges,parseFloat(onRoadCost - downPayment)))
     const rate = parseFloat(interestRate) / 100 / 12;
-    const time = parseFloat(loanTerm) * 12;
+    const time = parseFloat(tenure); // Adjust tenure
 
     if (principal > 0 && rate > 0 && time > 0) {
-      const emiValue =
-        (principal * rate * Math.pow(1 + rate, time)) /
-        (Math.pow(1 + rate, time) - 1);
+      const emiValue = (principal * rate * Math.pow(1 + rate, time)) / (Math.pow(1 + rate, time) - 1);
+      const totalPayment = emiValue * time;
+      const interestPayment = totalPayment - principal;
+      console.log({emiValue,totalPayment,interestPayment,downPayment})
+      setEmi(emiValue.toFixed(2));
+      setTotalInterest(interestPayment.toFixed(2));
+      setTotalAmount((totalPayment + convertedDownPayment).toFixed(2)); // Add advance EMI to total amount
+      setLoanAmount(principal.toFixed(2));
+    }
+  };
+
+  const calculateDownPayment = () => {
+    if (!onRoadCost || !interestRate || !tenure || !emi) {
+      alert("Please fill in all fields.");
+      return;
+    }
+
+    const emiValue = parseFloat(emi);
+    const rate = parseFloat(interestRate) / 100 / 12;
+    const time = parseFloat(tenure); // Adjust tenure
+    const extraCharges = parseFloat(extractSumOfCharges());
+
+    if (emiValue > 0 && rate > 0 && time > 0) {
+      const principal = parseFloat((emiValue * (Math.pow(1 + rate, time) - 1)) / (rate * Math.pow(1 + rate, time)));
+      const tempDownPayment = parseFloat(onRoadCost) - principal + extraCharges + (parseFloat(advanceEmi) * emiValue) + calculatePercentage(settings.agreementCharges,principal);
       const totalPayment = emiValue * time;
       const interestPayment = totalPayment - principal;
 
-      setEmi(emiValue.toFixed(2));
+      setDownPayment(tempDownPayment.toFixed(2));
       setTotalInterest(interestPayment.toFixed(2));
-      setTotalAmount(totalPayment.toFixed(2));
+      setTotalAmount((tempDownPayment + (emiValue * parseFloat(time - advanceEmi))).toFixed(2));
+      setLoanAmount(principal.toFixed(2));
     }
   };
 
@@ -56,39 +101,55 @@ function App() {
     setIsActivated(true);
   };
 
+  const handleSaveSettings = () => {
+    setShowSettings(false);
+  };
+
   if (!isActivated) {
     return (
-      <ThemeProvider theme={theme}>
+      <>
         <CssBaseline />
         <Container maxWidth="sm">
           <ActivationPrompt onActivate={handleActivate} />
         </Container>
-      </ThemeProvider>
+        </>
     );
   }
 
+  if (showSettings) {
+    return <Settings onSave={handleSaveSettings} />;
+  }
+
   return (
-    <ThemeProvider theme={theme}>
+    <>
       <CssBaseline />
       <Container maxWidth="sm">
         <Box sx={{ my: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             EMI Calculator
           </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setShowSettings(true)}
+            fullWidth
+            sx={{ mb: 3 }}
+          >
+            Settings
+          </Button>
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Loan Amount"
+                label="On Road Cost"
                 variant="outlined"
                 type="number"
-                value={loanAmount}
-                onChange={(e) => setLoanAmount(e.target.value)}
+                value={onRoadCost}
+                onChange={(e) => setOnRoadCost(e.target.value)}
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">₹</InputAdornment>
-                  ),
+                  startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                 }}
+                required
               />
             </Grid>
             <Grid item xs={12}>
@@ -100,34 +161,94 @@ function App() {
                 value={interestRate}
                 onChange={(e) => setInterestRate(e.target.value)}
                 InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">%</InputAdornment>
-                  ),
+                  endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
+                required
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Loan Term (Years)"
+                label="Tenure (Months)"
                 variant="outlined"
                 type="number"
-                value={loanTerm}
-                onChange={(e) => setLoanTerm(e.target.value)}
+                value={tenure}
+                onChange={(e) => setTenure(e.target.value)}
+                required
               />
             </Grid>
             <Grid item xs={12}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={calculateEMI}
+              <TextField
                 fullWidth
-              >
-                Calculate EMI
-              </Button>
+                label="Advance EMI"
+                variant="outlined"
+                type="number"
+                value={advanceEmi}
+                onChange={(e) => setAdvanceEmi(e.target.value)}
+                required
+              />
             </Grid>
+            <Grid item xs={12}>
+              <RadioGroup
+                row
+                value={inputMode}
+                onChange={(e) => {
+                  setInputMode(e.target.value);
+                  setEmi("");
+                  setDownPayment("");
+                  setTotalInterest(null);
+                  setTotalAmount(null);
+                }}
+              >
+                <FormControlLabel value="emi" control={<Radio />} label="Enter EMI" />
+                <FormControlLabel value="downPayment" control={<Radio />} label="Enter Down Payment" />
+              </RadioGroup>
+            </Grid>
+            {inputMode === "emi" ? (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="EMI"
+                  variant="outlined"
+                  type="number"
+                  value={emi}
+                  onChange={(e) => setEmi(e.target.value)}
+                  required
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={calculateDownPayment}
+                  fullWidth
+                  sx={{ mt: 2 }}
+                >
+                  Calculate
+                </Button>
+              </Grid>
+            ) : (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Down Payment"
+                  variant="outlined"
+                  type="number"
+                  value={downPayment}
+                  onChange={(e) => setDownPayment(e.target.value)}
+                  required
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={calculateEMI}
+                  fullWidth
+                  sx={{ mt: 2 }}
+                >
+                  Calculate
+                </Button>
+              </Grid>
+            )}
           </Grid>
-          {emi && (
+          {emi && downPayment && loanAmount && totalInterest && totalAmount && (
             <Box
               sx={{
                 mt: 4,
@@ -137,12 +258,7 @@ function App() {
                 boxShadow: 1,
               }}
             >
-              <Typography
-                variant="h5"
-                gutterBottom
-                fontWeight="bold"
-                color="primary"
-              >
+              <Typography variant="h5" gutterBottom fontWeight="bold" color="primary">
                 Results
               </Typography>
               <Grid container spacing={2}>
@@ -151,7 +267,23 @@ function App() {
                     Monthly EMI
                   </Typography>
                   <Typography variant="h6" fontWeight="bold">
-                    ₹{emi}
+                    ₹{emi} {inputMode === 'emi' && tenure && advanceEmi && <i>* for <b>{tenure - advanceEmi}</b> months</i>}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="subtitle1" color="text.secondary">
+                    Down Payment 
+                  </Typography>
+                  <Typography variant="h6" fontWeight="bold">
+                    ₹{downPayment} {inputMode === 'emi' && tenure && advanceEmi > 0 && <i><b>(including {advanceEmi} monthsof Advance EMI)</b></i>}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="subtitle1" color="text.secondary">
+                    Loan Amount
+                  </Typography>
+                  <Typography variant="h6" fontWeight="bold">
+                    ₹{loanAmount}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={4}>
@@ -175,7 +307,7 @@ function App() {
           )}
         </Box>
       </Container>
-    </ThemeProvider>
+    </>
   );
 }
 

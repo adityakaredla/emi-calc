@@ -7,7 +7,7 @@ const ActivationPrompt = ({ onActivate }) => {
 
   const handleActivate = () => {
     // Replace 'your-secret-key' with the actual activation key
-    if (key === 'admin@123') {
+    if (key === 'letmein') {
       localStorage.setItem('emiCalculatorActivated', 'true');
       onActivate();
     } else {
