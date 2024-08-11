@@ -1,5 +1,4 @@
-const extractSumOfCharges = () => {
-    const settings = JSON.parse(localStorage.getItem("emiCalculatorSettings")) || null;
+const extractSumOfCharges = (settings) => {
     if (settings) {
       const sum =  
       (parseFloat(settings.stampingCharges) || 0) + 

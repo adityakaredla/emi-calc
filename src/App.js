@@ -13,6 +13,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import ActivationPrompt from "./ActivationPrompt";
 import Settings from "./Settings";
 import extractSumOfCharges from "./helpers/extractSumOfCharges";
+import { toast ,ToastContainer} from "react-toastify";
 
 
 
@@ -48,6 +49,7 @@ function App() {
 
   function calculatePercentage(x, y) {
     x = parseFloat(x);
+    // console.log({x,y})
   
     if (isNaN(x) || isNaN(y)) {
       return 0;
@@ -61,10 +63,15 @@ function App() {
       alert("Please fill in all fields.");
       return;
     }
-    const extraCharges = extractSumOfCharges();
-    const convertedDownPayment = parseFloat(downPayment)
+    const settings = JSON.parse(localStorage.getItem("emiCalculatorSettings")) || {};
+    const temp = ((parseFloat(tenure) * 1200 * (100 - parseFloat(settings.agreementCharges || 0))) / ((1200 + parseFloat(interestRate) * tenure) * 100)) - advanceEmi;
+    const extraCharges = extractSumOfCharges(settings);
+    const convertedDownPayment = parseFloat(downPayment);
+    const res = (parseFloat(extraCharges) + parseFloat(onRoadCost) - convertedDownPayment) / temp;
+    const caclulatedLoanAmount = (parseFloat(tenure) * res * 1200)/(1200 + interestRate * tenure)
+    // console.log("New Emi -->",res);
     const principal = parseFloat(onRoadCost) - convertedDownPayment+ parseFloat(extraCharges) + calculatePercentage(settings.agreementCharges,parseFloat(onRoadCost - downPayment));
-    console.log(parseFloat(extraCharges),calculatePercentage(settings.agreementCharges,parseFloat(onRoadCost - downPayment)))
+    // console.log(parseFloat(extraCharges),calculatePercentage(settings.agreementCharges,parseFloat(onRoadCost - downPayment)))
     const rate = parseFloat(interestRate) / 100 / 12;
     const time = parseFloat(tenure); // Adjust tenure
 
@@ -72,12 +79,13 @@ function App() {
       const emiValue = (principal * rate * Math.pow(1 + rate, time)) / (Math.pow(1 + rate, time) - 1);
       const totalPayment = emiValue * time;
       const interestPayment = totalPayment - principal;
-      console.log({emiValue,totalPayment,interestPayment,downPayment})
-      setEmi(emiValue.toFixed(2));
+      // console.log({emiValue,totalPayment,interestPayment,downPayment})
+      setEmi(res.toFixed(2));
       setTotalInterest(interestPayment.toFixed(2));
       setTotalAmount((totalPayment + convertedDownPayment).toFixed(2)); // Add advance EMI to total amount
-      setLoanAmount(principal.toFixed(2));
-      scrollToResults(); // Scroll to results after calculation
+      // setLoanAmount(principal.toFixed(2));
+      setLoanAmount(caclulatedLoanAmount.toFixed(2));
+      scrollToResults();
     }
   };
 
@@ -131,6 +139,7 @@ function App() {
 
   return (
     <>
+      <ToastContainer />
       <CssBaseline />
       <Container maxWidth="sm">
         <Box sx={{ my: 4 }}>
@@ -197,7 +206,7 @@ function App() {
                 required
               />
             </Grid>
-            <Grid item xs={12}>
+            {/* <Grid item xs={12}>
               <RadioGroup
                 row
                 value={inputMode}
@@ -212,8 +221,8 @@ function App() {
                 <FormControlLabel value="emi" control={<Radio />} label="Enter EMI" />
                 <FormControlLabel value="downPayment" control={<Radio />} label="Enter Down Payment" />
               </RadioGroup>
-            </Grid>
-            {inputMode === "emi" ? (
+            </Grid> */}
+            {/* {inputMode === "emi" ? (
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -234,7 +243,7 @@ function App() {
                   Calculate
                 </Button>
               </Grid>
-            ) : (
+            ) : ( */}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -252,12 +261,28 @@ function App() {
                   fullWidth
                   sx={{ mt: 2 }}
                 >
-                  Calculate
+                  Submit
                 </Button>
+                {emi && <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => {
+                    setOnRoadCost("");
+                    setTenure("")
+                    setEmi("");
+                    setDownPayment("");
+                    setTotalInterest(null);
+                    setTotalAmount(null);
+                  }}
+                  fullWidth
+                  sx={{ mt: 2 }}
+                >
+                  Clear
+                </Button>}
               </Grid>
-            )}
+            {/* )} */}
           </Grid>
-          {emi && downPayment && loanAmount && totalInterest && totalAmount && (
+          {emi && loanAmount && (
             <Box
               sx={{
                 mt: 4,
@@ -279,14 +304,14 @@ function App() {
                     ₹{emi} {inputMode === 'emi' && tenure && advanceEmi && <i>* for <b>{tenure - advanceEmi}</b> months</i>}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                {/* <Grid item xs={12} sm={4}>
                   <Typography variant="subtitle1" color="text.secondary">
                     Down Payment 
                   </Typography>
                   <Typography variant="h6" fontWeight="bold">
                     ₹{downPayment} {inputMode === 'emi' && tenure && advanceEmi > 0 && <i><b>(including {advanceEmi} monthsof Advance EMI)</b></i>}
                   </Typography>
-                </Grid>
+                </Grid> */}
                 <Grid item xs={12} sm={4}>
                   <Typography variant="subtitle1" color="text.secondary">
                     Loan Amount
@@ -295,22 +320,22 @@ function App() {
                     ₹{loanAmount}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                {/* <Grid item xs={12} sm={4}>
                   <Typography variant="subtitle1" color="text.secondary">
                     Total Interest
                   </Typography>
                   <Typography variant="h6" fontWeight="bold">
                     ₹{totalInterest}
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={4}>
+                </Grid> */}
+                {/* <Grid item xs={12} sm={4}>
                   <Typography variant="subtitle1" color="text.secondary">
                     Total Amount
                   </Typography>
                   <Typography variant="h6" fontWeight="bold">
                     ₹{totalAmount}
                   </Typography>
-                </Grid>
+                </Grid> */}
               </Grid>
             </Box>
           )}
